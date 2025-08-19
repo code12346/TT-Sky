@@ -1,6 +1,6 @@
 module tt_um_code12346_pwm (
     input  wire clk,
-    input  wire rst_n,
+    input  wire rst_n,      // active-low reset from TinyTapeout
     input  wire [7:0] ui_in,
     output wire [7:0] uo_out,
     input  wire [7:0] uio_in,
@@ -9,23 +9,28 @@ module tt_um_code12346_pwm (
     input  wire ena
 );
 
-    // Duty cycle percentage (0–100) from ui_in[6:0]
-    wire [6:0] dc = ui_in[6:0];
-    reg pwm_out;
-    reg pwm_out1;
+    // Convert active-low reset to active-high
+    wire reset = ~rst_n;
 
-    // Internal PWM module
+    // Duty cycle: use full 8-bit input (0–255)
+    wire [7:0] dc = ui_in;
+
+    // PWM outputs
+    wire pwm_out;
+    wire pwm_out1;
+
+    // Instantiate PWM module
     pwm pwm_inst (
         .clk(clk),
-        .rst_n(rst_n),   // active-low reset
+        .reset(reset),
         .dc(dc),
         .pwm_out(pwm_out),
         .pwm_out1(pwm_out1)
     );
 
-    // Gate outputs with ena (TinyTapeout requirement)
-    assign uo_out[0] = ena ? pwm_out  : 1'b0;
-    assign uo_out[1] = ena ? pwm_out1 : 1'b0;
+    // Map outputs
+    assign uo_out[0] = pwm_out;
+    assign uo_out[1] = pwm_out1;
     assign uo_out[7:2] = 6'b0;
 
     // Not using bidirectional IOs
@@ -36,40 +41,33 @@ endmodule
 
 
 // ----------------------------------------------------
-// PWM generator logic (dc = duty cycle percentage)
+// PWM generator logic
 // ----------------------------------------------------
 module pwm (
     input  wire clk,
-    input  wire rst_n,     // active-low
-    input  wire [6:0] dc,  // duty cycle percentage (0–100)
+    input  wire reset,       // active-high reset
+    input  wire [7:0] dc,    // duty cycle 0–255
     output reg pwm_out,
     output reg pwm_out1
 );
     reg [7:0] count;
-    wire [7:0] threshold;
 
-    // Scale percentage (0–100) into 8-bit threshold (0–255)
-    assign threshold = (dc * 255) / 100;
-
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            count    <= 8'd0;
-            pwm_out  <= 1'b0;
+    always @(posedge clk) begin
+        if (reset) begin
+            count <= 8'd0;
+            pwm_out <= 1'b0;
             pwm_out1 <= 1'b0;
         end else begin
             count <= count + 1;
 
-            if (dc == 0) begin
-                pwm_out <= 1'b0;
-            end else if (dc >= 100) begin
+            // Compare duty cycle directly
+            if (count < dc)
                 pwm_out <= 1'b1;
-            end else if (count < threshold) begin
-                pwm_out <= 1'b1;
-            end else begin
+            else
                 pwm_out <= 1'b0;
-            end
 
-            pwm_out1 <= pwm_out;  // second output = delayed copy
+            // Second output is same as pwm_out (you can change if needed)
+            pwm_out1 <= pwm_out;
         end
     end
 endmodule
