@@ -24,8 +24,8 @@ module tt_um_code12346_pwm (
     );
 
     // Gate outputs with ena (TinyTapeout requirement)
-    assign uo_out[0]   = ena ? pwm_out  : 1'b0;
-    assign uo_out[1]   = ena ? pwm_out1 : 1'b0;
+    assign uo_out[0] = ena ? pwm_out  : 1'b0;
+    assign uo_out[1] = ena ? pwm_out1 : 1'b0;
     assign uo_out[7:2] = 6'b0;
 
     // Not using bidirectional IOs
